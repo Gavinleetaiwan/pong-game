@@ -102,28 +102,7 @@
             font-size: 120px;
             font-weight: bold;
             margin: 20px 0;
-        }
-
-        .player-number.left { color: #00ff88; }
-        .player-number.right { color: #ff6b6b; }
-
-        .team-badge {
-            font-size: 24px;
-            padding: 10px 30px;
-            border-radius: 30px;
-            margin-top: 10px;
-        }
-
-        .team-badge.left {
-            background: rgba(0, 255, 136, 0.2);
-            border: 2px solid #00ff88;
-            color: #00ff88;
-        }
-
-        .team-badge.right {
-            background: rgba(255, 107, 107, 0.2);
-            border: 2px solid #ff6b6b;
-            color: #ff6b6b;
+            color: #00d9ff;
         }
 
         .waiting-text {
@@ -148,10 +127,8 @@
         .my-number {
             font-size: 36px;
             font-weight: bold;
+            color: #00d9ff;
         }
-
-        .my-number.left { color: #00ff88; }
-        .my-number.right { color: #ff6b6b; }
 
         .score-info {
             text-align: center;
@@ -160,27 +137,6 @@
         .score-display {
             font-size: 28px;
             font-weight: bold;
-        }
-
-        .round-display {
-            font-size: 12px;
-            color: #888;
-        }
-
-        .team-indicator {
-            font-size: 14px;
-            padding: 5px 15px;
-            border-radius: 15px;
-        }
-
-        .team-indicator.left {
-            background: rgba(0, 255, 136, 0.2);
-            color: #00ff88;
-        }
-
-        .team-indicator.right {
-            background: rgba(255, 107, 107, 0.2);
-            color: #ff6b6b;
         }
 
         /* Control buttons */
@@ -301,7 +257,6 @@
             <div class="waiting-icon">🏓</div>
             <div style="color: #888; font-size: 16px;">你的號碼是</div>
             <div class="player-number" id="playerNumber">--</div>
-            <div class="team-badge" id="teamBadge">--</div>
             <div class="waiting-text">等待遊戲開始...</div>
         </div>
 
@@ -313,9 +268,8 @@
                     <div class="score-display">
                         <span id="scoreLeft">0</span> : <span id="scoreRight">0</span>
                     </div>
-                    <div class="round-display">第 <span id="roundNumber">1</span> 局</div>
                 </div>
-                <div class="team-indicator" id="teamIndicator">--</div>
+                <div class="my-number" id="myNumber2">--</div>
             </div>
 
             <div class="controls">
@@ -339,7 +293,6 @@
 
         let playerState = {
             number: null,
-            team: null,
             currentInput: null
         };
 
@@ -369,23 +322,13 @@
 
         socket.on('player:assigned', (data) => {
             playerState.number = data.number;
-            playerState.team = data.team;
 
             // Update waiting screen
-            const numberEl = document.getElementById('playerNumber');
-            const badgeEl = document.getElementById('teamBadge');
-            numberEl.textContent = data.number;
-            numberEl.className = 'player-number ' + data.team;
-            badgeEl.textContent = '請守護' + data.teamName + '球門';
-            badgeEl.className = 'team-badge ' + data.team;
+            document.getElementById('playerNumber').textContent = data.number;
 
             // Update game screen
-            const myNumber = document.getElementById('myNumber');
-            const indicator = document.getElementById('teamIndicator');
-            myNumber.textContent = data.number;
-            myNumber.className = 'my-number ' + data.team;
-            indicator.textContent = data.teamName;
-            indicator.className = 'team-indicator ' + data.team;
+            document.getElementById('myNumber').textContent = data.number;
+            document.getElementById('myNumber2').textContent = data.number;
 
             showScreen('waiting');
 
@@ -398,27 +341,23 @@
         socket.on('game:started', (data) => {
             document.getElementById('scoreLeft').textContent = data.score.left;
             document.getElementById('scoreRight').textContent = data.score.right;
-            document.getElementById('roundNumber').textContent = data.round;
             showScreen('game');
         });
 
         socket.on('game:state', (state) => {
             document.getElementById('scoreLeft').textContent = state.score.left;
             document.getElementById('scoreRight').textContent = state.score.right;
-            document.getElementById('roundNumber').textContent = state.round;
         });
 
         socket.on('game:scored', (data) => {
             document.getElementById('scoreLeft').textContent = data.score.left;
             document.getElementById('scoreRight').textContent = data.score.right;
-            document.getElementById('roundNumber').textContent = data.round;
         });
 
         socket.on('game:finished', (data) => {
-            const isWinner = (data.winner === playerState.team);
-            document.getElementById('resultIcon').textContent = isWinner ? '🎉' : '😢';
-            document.getElementById('resultTitle').textContent = isWinner ? '你的隊伍獲勝!' : '遊戲結束';
-            document.getElementById('resultTitle').className = 'result-title ' + (isWinner ? 'win' : 'lose');
+            document.getElementById('resultIcon').textContent = '🎉';
+            document.getElementById('resultTitle').textContent = '遊戲結束';
+            document.getElementById('resultTitle').className = 'result-title';
             document.getElementById('resultScore').textContent = `${data.score.left} : ${data.score.right}`;
             showScreen('result');
         });
@@ -436,7 +375,7 @@
         });
 
         socket.on('players:reset', () => {
-            playerState = { number: null, team: null, currentInput: null };
+            playerState = { number: null, currentInput: null };
             showScreen('join');
         });
 

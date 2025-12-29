@@ -265,21 +265,12 @@
                     <span class="score-divider">:</span>
                     <span class="score-right" id="scoreRight">0</span>
                 </span>
-                <div class="round-info">第 <span id="roundNumber">1</span> 局</div>
             </div>
 
-            <div class="status-grid">
+            <div class="status-grid" style="grid-template-columns: 1fr;">
                 <div class="status-item">
                     <div class="status-value" id="totalPlayers">0</div>
                     <div class="status-label">總玩家數</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-value left" id="leftTeam">0</div>
-                    <div class="status-label">左方 (偶數)</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-value right" id="rightTeam">0</div>
-                    <div class="status-label">右方 (單數)</div>
                 </div>
             </div>
 
@@ -328,10 +319,7 @@
         const statusBadge = document.getElementById('statusBadge');
         const scoreLeft = document.getElementById('scoreLeft');
         const scoreRight = document.getElementById('scoreRight');
-        const roundNumber = document.getElementById('roundNumber');
         const totalPlayers = document.getElementById('totalPlayers');
-        const leftTeam = document.getElementById('leftTeam');
-        const rightTeam = document.getElementById('rightTeam');
         const btnStart = document.getElementById('btnStart');
         const btnPause = document.getElementById('btnPause');
         const btnReset = document.getElementById('btnReset');
@@ -348,29 +336,22 @@
             updateStatus(state.status);
             scoreLeft.textContent = state.score.left;
             scoreRight.textContent = state.score.right;
-            roundNumber.textContent = state.round;
             totalPlayers.textContent = state.playerCount;
-            leftTeam.textContent = state.leftTeamCount;
-            rightTeam.textContent = state.rightTeamCount;
         });
 
         socket.on('admin:playerUpdate', (data) => {
             totalPlayers.textContent = data.playerCount;
-            leftTeam.textContent = data.leftTeamCount;
-            rightTeam.textContent = data.rightTeamCount;
         });
 
         socket.on('game:started', (data) => {
             updateStatus('playing');
             scoreLeft.textContent = data.score.left;
             scoreRight.textContent = data.score.right;
-            roundNumber.textContent = data.round;
         });
 
         socket.on('game:scored', (data) => {
             scoreLeft.textContent = data.score.left;
             scoreRight.textContent = data.score.right;
-            roundNumber.textContent = data.round;
         });
 
         socket.on('game:finished', (data) => {
@@ -391,13 +372,10 @@
             updateStatus('waiting');
             scoreLeft.textContent = '0';
             scoreRight.textContent = '0';
-            roundNumber.textContent = '1';
         });
 
         socket.on('players:reset', () => {
             totalPlayers.textContent = '0';
-            leftTeam.textContent = '0';
-            rightTeam.textContent = '0';
         });
 
         // Functions

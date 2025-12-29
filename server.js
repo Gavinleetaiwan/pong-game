@@ -2,13 +2,9 @@
  * Crowd Interactive Pong Game
  * Experience Collective Intelligence
  *
- * Players join via QR code, get assigned a number:
- * - Even numbers: Defend LEFT paddle
- * - Odd numbers: Defend RIGHT paddle
- *
+ * All players control both paddles together
  * Paddle movement is based on collective votes (up/down ratio)
  * First to 7 points wins
- * Ball speed increases each round
  */
 
 const express = require('express');
@@ -29,9 +25,9 @@ let PUBLIC_URL = process.env.PUBLIC_URL || null;
 
 // Game Constants
 const WINNING_SCORE = 7;
-const INITIAL_BALL_SPEED = 5;
-const SPEED_INCREMENT = 0.5;
-const PADDLE_SPEED = 8;
+const INITIAL_BALL_SPEED = 3; // Slower ball
+const SPEED_INCREMENT = 0; // No speed increase
+const PADDLE_SPEED = 6;
 const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 600;
 const PADDLE_HEIGHT = 120;
@@ -61,11 +57,10 @@ const gameState = {
         left: 0,
         right: 0
     },
-    round: 1,
     ballSpeed: INITIAL_BALL_SPEED,
-    players: new Map(), // socketId -> { number, team, lastInput, inputTime }
+    players: new Map(), // socketId -> { number, lastInput, inputTime }
     nextPlayerNumber: 1,
-    recentInputs: [], // For marquee display: { number, direction, team, timestamp }
+    recentInputs: [], // For marquee display: { number, direction, timestamp }
     maxRecentInputs: 20
 };
 
@@ -117,7 +112,6 @@ function resetRound() {
 function resetGame() {
     gameState.status = 'waiting';
     gameState.score = { left: 0, right: 0 };
-    gameState.round = 1;
     gameState.ballSpeed = INITIAL_BALL_SPEED;
     gameState.recentInputs = [];
     resetRound();
@@ -205,9 +199,6 @@ function startGameLoop() {
         }
 
         if (scored) {
-            gameState.round++;
-            gameState.ballSpeed = INITIAL_BALL_SPEED + (gameState.round - 1) * SPEED_INCREMENT;
-
             // Check for winner
             if (gameState.score.left >= WINNING_SCORE || gameState.score.right >= WINNING_SCORE) {
                 gameState.status = 'finished';
@@ -217,20 +208,14 @@ function startGameLoop() {
                     score: gameState.score
                 });
             } else {
-                // Reset for next round
+                // Reset for next point
                 setTimeout(() => {
                     resetRound();
-                    io.emit('game:roundStart', {
-                        round: gameState.round,
-                        score: gameState.score,
-                        ballSpeed: gameState.ballSpeed
-                    });
                 }, 1500);
             }
 
             io.emit('game:scored', {
-                score: gameState.score,
-                round: gameState.round
+                score: gameState.score
             });
         }
 
@@ -253,7 +238,6 @@ function startGameLoop() {
                 totalVotes: gameState.rightPaddle.upVotes + gameState.rightPaddle.downVotes
             },
             score: gameState.score,
-            round: gameState.round,
             status: gameState.status,
             recentInputs: gameState.recentInputs
         });
@@ -316,10 +300,7 @@ app.get('/state', (req, res) => {
     res.json({
         status: gameState.status,
         score: gameState.score,
-        round: gameState.round,
-        playerCount: gameState.players.size,
-        leftTeamCount: Array.from(gameState.players.values()).filter(p => p.team === 'left').length,
-        rightTeamCount: Array.from(gameState.players.values()).filter(p => p.team === 'right').length
+        playerCount: gameState.players.size
     });
 });
 
@@ -328,7 +309,6 @@ app.get('/players', (req, res) => {
     const players = Array.from(gameState.players.entries()).map(([id, p]) => ({
         id,
         number: p.number,
-        team: p.team,
         lastInput: p.lastInput
     }));
     res.json(players);
@@ -344,10 +324,7 @@ io.on('connection', (socket) => {
         socket.emit('admin:state', {
             status: gameState.status,
             score: gameState.score,
-            round: gameState.round,
             playerCount: gameState.players.size,
-            leftTeamCount: Array.from(gameState.players.values()).filter(p => p.team === 'left').length,
-            rightTeamCount: Array.from(gameState.players.values()).filter(p => p.team === 'right').length,
             qrUrl: `${getPublicURL()}/play`
         });
     });
@@ -370,39 +347,31 @@ io.on('connection', (socket) => {
     socket.on('player:join', () => {
         // Assign player number
         const playerNumber = gameState.nextPlayerNumber++;
-        const team = playerNumber % 2 === 0 ? 'left' : 'right';
 
         gameState.players.set(socket.id, {
             number: playerNumber,
-            team: team,
             lastInput: null,
             inputTime: null
         });
 
         socket.join('players');
-        socket.join(team === 'left' ? 'leftTeam' : 'rightTeam');
 
         socket.emit('player:assigned', {
             number: playerNumber,
-            team: team,
-            teamName: team === 'left' ? '左方' : '右方',
             status: gameState.status
         });
 
         // Notify displays and admin
         io.to('displays').emit('player:joined', {
             number: playerNumber,
-            team: team,
             totalPlayers: gameState.players.size
         });
 
         io.to('admins').emit('admin:playerUpdate', {
-            playerCount: gameState.players.size,
-            leftTeamCount: Array.from(gameState.players.values()).filter(p => p.team === 'left').length,
-            rightTeamCount: Array.from(gameState.players.values()).filter(p => p.team === 'right').length
+            playerCount: gameState.players.size
         });
 
-        console.log(`Player ${playerNumber} joined (${team} team)`);
+        console.log(`Player ${playerNumber} joined`);
     });
 
     // Player input (up/down)
@@ -417,22 +386,31 @@ io.on('connection', (socket) => {
         player.lastInput = direction;
         player.inputTime = Date.now();
 
-        // Update vote counts
-        const paddle = player.team === 'left' ? gameState.leftPaddle : gameState.rightPaddle;
-
+        // Update vote counts for BOTH paddles (all players control both)
         // Remove previous vote if exists
-        if (prevInput === 'up') paddle.upVotes = Math.max(0, paddle.upVotes - 1);
-        if (prevInput === 'down') paddle.downVotes = Math.max(0, paddle.downVotes - 1);
+        if (prevInput === 'up') {
+            gameState.leftPaddle.upVotes = Math.max(0, gameState.leftPaddle.upVotes - 1);
+            gameState.rightPaddle.upVotes = Math.max(0, gameState.rightPaddle.upVotes - 1);
+        }
+        if (prevInput === 'down') {
+            gameState.leftPaddle.downVotes = Math.max(0, gameState.leftPaddle.downVotes - 1);
+            gameState.rightPaddle.downVotes = Math.max(0, gameState.rightPaddle.downVotes - 1);
+        }
 
-        // Add new vote
-        if (direction === 'up') paddle.upVotes++;
-        if (direction === 'down') paddle.downVotes++;
+        // Add new vote to both paddles
+        if (direction === 'up') {
+            gameState.leftPaddle.upVotes++;
+            gameState.rightPaddle.upVotes++;
+        }
+        if (direction === 'down') {
+            gameState.leftPaddle.downVotes++;
+            gameState.rightPaddle.downVotes++;
+        }
 
         // Add to recent inputs for marquee
         gameState.recentInputs.unshift({
             number: player.number,
             direction: direction,
-            team: player.team,
             timestamp: Date.now()
         });
 
@@ -444,8 +422,7 @@ io.on('connection', (socket) => {
         // Emit to displays for marquee effect
         io.to('displays').emit('input:received', {
             number: player.number,
-            direction: direction,
-            team: player.team
+            direction: direction
         });
     });
 
@@ -454,11 +431,15 @@ io.on('connection', (socket) => {
         const player = gameState.players.get(socket.id);
         if (!player || !player.lastInput) return;
 
-        const paddle = player.team === 'left' ? gameState.leftPaddle : gameState.rightPaddle;
-
-        // Remove vote
-        if (player.lastInput === 'up') paddle.upVotes = Math.max(0, paddle.upVotes - 1);
-        if (player.lastInput === 'down') paddle.downVotes = Math.max(0, paddle.downVotes - 1);
+        // Remove vote from both paddles
+        if (player.lastInput === 'up') {
+            gameState.leftPaddle.upVotes = Math.max(0, gameState.leftPaddle.upVotes - 1);
+            gameState.rightPaddle.upVotes = Math.max(0, gameState.rightPaddle.upVotes - 1);
+        }
+        if (player.lastInput === 'down') {
+            gameState.leftPaddle.downVotes = Math.max(0, gameState.leftPaddle.downVotes - 1);
+            gameState.rightPaddle.downVotes = Math.max(0, gameState.rightPaddle.downVotes - 1);
+        }
 
         player.lastInput = null;
     });
@@ -470,7 +451,6 @@ io.on('connection', (socket) => {
             gameState.status = 'playing';
             startGameLoop();
             io.emit('game:started', {
-                round: gameState.round,
                 score: gameState.score
             });
             console.log('Game started!');
@@ -520,17 +500,20 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         const player = gameState.players.get(socket.id);
         if (player) {
-            // Remove their vote
-            const paddle = player.team === 'left' ? gameState.leftPaddle : gameState.rightPaddle;
-            if (player.lastInput === 'up') paddle.upVotes = Math.max(0, paddle.upVotes - 1);
-            if (player.lastInput === 'down') paddle.downVotes = Math.max(0, paddle.downVotes - 1);
+            // Remove their vote from both paddles
+            if (player.lastInput === 'up') {
+                gameState.leftPaddle.upVotes = Math.max(0, gameState.leftPaddle.upVotes - 1);
+                gameState.rightPaddle.upVotes = Math.max(0, gameState.rightPaddle.upVotes - 1);
+            }
+            if (player.lastInput === 'down') {
+                gameState.leftPaddle.downVotes = Math.max(0, gameState.leftPaddle.downVotes - 1);
+                gameState.rightPaddle.downVotes = Math.max(0, gameState.rightPaddle.downVotes - 1);
+            }
 
             gameState.players.delete(socket.id);
 
             io.to('admins').emit('admin:playerUpdate', {
-                playerCount: gameState.players.size,
-                leftTeamCount: Array.from(gameState.players.values()).filter(p => p.team === 'left').length,
-                rightTeamCount: Array.from(gameState.players.values()).filter(p => p.team === 'right').length
+                playerCount: gameState.players.size
             });
 
             console.log(`Player ${player.number} disconnected`);

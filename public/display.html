@@ -264,7 +264,7 @@
 <body>
     <div class="game-header">
         <div class="team-info team-left">
-            <span class="team-label">左方 (偶數)</span>
+            <span class="team-label">左方</span>
         </div>
 
         <div class="game-info">
@@ -273,12 +273,10 @@
                 <span class="score-divider">:</span>
                 <span class="score-right" id="scoreRight">0</span>
             </div>
-            <div class="round-display">第 <span id="roundNumber">1</span> 局</div>
-            <div class="rules-display">雙數守左方，單數守右方，先得7分方獲勝</div>
         </div>
 
         <div class="team-info team-right">
-            <span class="team-label">右方 (單數)</span>
+            <span class="team-label">右方</span>
         </div>
     </div>
 
@@ -310,16 +308,6 @@
                 <div class="waiting-title">Crowd Interactive Pong</div>
                 <div class="player-count" id="playerCount">0</div>
                 <div class="player-label">位玩家已連線</div>
-                <div class="team-counts">
-                    <div class="team-count team-count-left">
-                        <div class="team-count-value" id="leftTeamCount">0</div>
-                        <div>左方 (偶數)</div>
-                    </div>
-                    <div class="team-count team-count-right">
-                        <div class="team-count-value" id="rightTeamCount">0</div>
-                        <div>右方 (單數)</div>
-                    </div>
-                </div>
             </div>
 
             <div class="status-message" id="finishedScreen" style="display: none;">
@@ -354,8 +342,7 @@
             ball: { x: 600, y: 300 },
             leftPaddle: { y: 240, upRatio: 0.5, downRatio: 0.5 },
             rightPaddle: { y: 240, upRatio: 0.5, downRatio: 0.5 },
-            score: { left: 0, right: 0 },
-            round: 1
+            score: { left: 0, right: 0 }
         };
 
         let recentInputs = [];
@@ -384,17 +371,11 @@
             hideOverlay();
             document.getElementById('scoreLeft').textContent = data.score.left;
             document.getElementById('scoreRight').textContent = data.score.right;
-            document.getElementById('roundNumber').textContent = data.round;
         });
 
         socket.on('game:scored', (data) => {
             document.getElementById('scoreLeft').textContent = data.score.left;
             document.getElementById('scoreRight').textContent = data.score.right;
-            document.getElementById('roundNumber').textContent = data.round;
-        });
-
-        socket.on('game:roundStart', (data) => {
-            document.getElementById('roundNumber').textContent = data.round;
         });
 
         socket.on('game:finished', (data) => {
@@ -405,7 +386,6 @@
             showWaitingScreen();
             document.getElementById('scoreLeft').textContent = '0';
             document.getElementById('scoreRight').textContent = '0';
-            document.getElementById('roundNumber').textContent = '1';
         });
 
         socket.on('game:paused', () => {
@@ -418,25 +398,14 @@
 
         socket.on('player:joined', (data) => {
             document.getElementById('playerCount').textContent = data.totalPlayers;
-            if (data.team === 'left') {
-                const count = parseInt(document.getElementById('leftTeamCount').textContent) + 1;
-                document.getElementById('leftTeamCount').textContent = count;
-            } else {
-                const count = parseInt(document.getElementById('rightTeamCount').textContent) + 1;
-                document.getElementById('rightTeamCount').textContent = count;
-            }
         });
 
         socket.on('admin:playerUpdate', (data) => {
             document.getElementById('playerCount').textContent = data.playerCount;
-            document.getElementById('leftTeamCount').textContent = data.leftTeamCount;
-            document.getElementById('rightTeamCount').textContent = data.rightTeamCount;
         });
 
         socket.on('players:reset', () => {
             document.getElementById('playerCount').textContent = '0';
-            document.getElementById('leftTeamCount').textContent = '0';
-            document.getElementById('rightTeamCount').textContent = '0';
             recentInputs = [];
             updateMarquee([]);
         });
@@ -503,7 +472,7 @@
                 const arrow = input.direction === 'up' ? '▲' : '▼';
                 const arrowClass = input.direction === 'up' ? 'up' : 'down';
                 return `
-                    <div class="input-item ${input.team}">
+                    <div class="input-item" style="background: rgba(0, 217, 255, 0.2); border: 2px solid #00d9ff;">
                         <span class="input-number">${input.number}</span>
                         <span class="input-arrow ${arrowClass}">${arrow}</span>
                     </div>
