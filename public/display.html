@@ -329,6 +329,72 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
+        // Audio Context for sound effects
+        let audioContext = null;
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Sound effects using Web Audio API
+        function playPaddleHitSound() {
+            initAudio();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 440; // A4 note
+            oscillator.type = 'square';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        function playGoalSound() {
+            initAudio();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // Descending tone for goal
+            oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(150, audioContext.currentTime + 0.5);
+            oscillator.type = 'sawtooth';
+
+            gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        function playWinSound() {
+            initAudio();
+            // Play a victory jingle
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((freq, i) => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = freq;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + i * 0.15);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + i * 0.15 + 0.3);
+                oscillator.start(audioContext.currentTime + i * 0.15);
+                oscillator.stop(audioContext.currentTime + i * 0.15 + 0.3);
+            });
+        }
+
         let gameConfig = {
             canvasWidth: 1200,
             canvasHeight: 600,
@@ -342,7 +408,8 @@
             ball: { x: 600, y: 300 },
             leftPaddle: { y: 240, upRatio: 0.5, downRatio: 0.5 },
             rightPaddle: { y: 240, upRatio: 0.5, downRatio: 0.5 },
-            score: { left: 0, right: 0 }
+            score: { left: 0, right: 0 },
+            activePaddle: 'right'
         };
 
         let recentInputs = [];
@@ -380,6 +447,19 @@
 
         socket.on('game:finished', (data) => {
             showFinishedScreen(data.winner, data.score);
+            playWinSound();
+        });
+
+        socket.on('game:paddleHit', (data) => {
+            playPaddleHitSound();
+        });
+
+        socket.on('game:goal', (data) => {
+            playGoalSound();
+        });
+
+        socket.on('game:activePaddleChanged', (data) => {
+            gameState.activePaddle = data.activePaddle;
         });
 
         socket.on('game:reset', () => {
@@ -470,11 +550,14 @@
 
             marquee.innerHTML = inputs.map(input => {
                 const arrow = input.direction === 'up' ? '▲' : '▼';
-                const arrowClass = input.direction === 'up' ? 'up' : 'down';
+                const isUp = input.direction === 'up';
+                const bgColor = isUp ? 'rgba(0, 255, 136, 0.3)' : 'rgba(255, 107, 107, 0.3)';
+                const borderColor = isUp ? '#00ff88' : '#ff6b6b';
+                const arrowColor = isUp ? '#00ff88' : '#ff6b6b';
                 return `
-                    <div class="input-item" style="background: rgba(0, 217, 255, 0.2); border: 2px solid #00d9ff;">
+                    <div class="input-item" style="background: ${bgColor}; border: 2px solid ${borderColor};">
                         <span class="input-number">${input.number}</span>
-                        <span class="input-arrow ${arrowClass}">${arrow}</span>
+                        <span class="input-arrow" style="color: ${arrowColor};">${arrow}</span>
                     </div>
                 `;
             }).join('');
@@ -495,19 +578,34 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
+            // Active paddle indicator - highlight which side players are controlling
+            const isLeftActive = gameState.activePaddle === 'left';
+
             // Left paddle
+            ctx.save();
+            if (isLeftActive) {
+                ctx.shadowColor = '#00ff88';
+                ctx.shadowBlur = 30;
+            }
             const gradient1 = ctx.createLinearGradient(0, gameState.leftPaddle.y, 0, gameState.leftPaddle.y + gameConfig.paddleHeight);
-            gradient1.addColorStop(0, '#00ff88');
-            gradient1.addColorStop(1, '#00cc6a');
+            gradient1.addColorStop(0, isLeftActive ? '#00ff88' : '#006644');
+            gradient1.addColorStop(1, isLeftActive ? '#00cc6a' : '#004433');
             ctx.fillStyle = gradient1;
             ctx.fillRect(20, gameState.leftPaddle.y, gameConfig.paddleWidth, gameConfig.paddleHeight);
+            ctx.restore();
 
             // Right paddle
+            ctx.save();
+            if (!isLeftActive) {
+                ctx.shadowColor = '#ff6b6b';
+                ctx.shadowBlur = 30;
+            }
             const gradient2 = ctx.createLinearGradient(0, gameState.rightPaddle.y, 0, gameState.rightPaddle.y + gameConfig.paddleHeight);
-            gradient2.addColorStop(0, '#ff6b6b');
-            gradient2.addColorStop(1, '#cc5555');
+            gradient2.addColorStop(0, !isLeftActive ? '#ff6b6b' : '#663333');
+            gradient2.addColorStop(1, !isLeftActive ? '#cc5555' : '#442222');
             ctx.fillStyle = gradient2;
             ctx.fillRect(canvas.width - 20 - gameConfig.paddleWidth, gameState.rightPaddle.y, gameConfig.paddleWidth, gameConfig.paddleHeight);
+            ctx.restore();
 
             // Ball
             ctx.beginPath();

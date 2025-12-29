@@ -2,7 +2,9 @@
  * Crowd Interactive Pong Game
  * Experience Collective Intelligence
  *
- * All players control both paddles together
+ * All players control the same paddle based on ball position:
+ * - When ball is on LEFT side (past center), all control LEFT paddle
+ * - When ball is on RIGHT side, all control RIGHT paddle
  * Paddle movement is based on collective votes (up/down ratio)
  * First to 7 points wins
  */
@@ -58,10 +60,11 @@ const gameState = {
         right: 0
     },
     ballSpeed: INITIAL_BALL_SPEED,
+    activePaddle: 'right', // Which paddle all players control (based on ball position)
     players: new Map(), // socketId -> { number, lastInput, inputTime }
     nextPlayerNumber: 1,
     recentInputs: [], // For marquee display: { number, direction, timestamp }
-    maxRecentInputs: 20
+    maxRecentInputs: 30
 };
 
 // Get local IP
@@ -144,12 +147,30 @@ function startGameLoop() {
     gameLoop = setInterval(() => {
         if (gameState.status !== 'playing') return;
 
-        // Move paddles based on collective votes
-        const leftMove = calculatePaddleMovement(gameState.leftPaddle);
-        const rightMove = calculatePaddleMovement(gameState.rightPaddle);
+        // Determine which paddle is active based on ball position
+        const prevActivePaddle = gameState.activePaddle;
+        gameState.activePaddle = gameState.ball.x < CANVAS_WIDTH / 2 ? 'left' : 'right';
 
-        gameState.leftPaddle.y += leftMove;
-        gameState.rightPaddle.y += rightMove;
+        // Notify if active paddle changed
+        if (prevActivePaddle !== gameState.activePaddle) {
+            io.emit('game:activePaddleChanged', { activePaddle: gameState.activePaddle });
+        }
+
+        // Move ONLY the active paddle based on collective votes
+        // The inactive paddle slowly returns to center
+        if (gameState.activePaddle === 'left') {
+            const leftMove = calculatePaddleMovement(gameState.leftPaddle);
+            gameState.leftPaddle.y += leftMove;
+            // Inactive paddle slowly centers
+            const centerY = CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+            gameState.rightPaddle.y += (centerY - gameState.rightPaddle.y) * 0.02;
+        } else {
+            const rightMove = calculatePaddleMovement(gameState.rightPaddle);
+            gameState.rightPaddle.y += rightMove;
+            // Inactive paddle slowly centers
+            const centerY = CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+            gameState.leftPaddle.y += (centerY - gameState.leftPaddle.y) * 0.02;
+        }
 
         // Clamp paddles to screen
         gameState.leftPaddle.y = Math.max(0, Math.min(CANVAS_HEIGHT - PADDLE_HEIGHT, gameState.leftPaddle.y));
@@ -174,6 +195,8 @@ function startGameLoop() {
             // Add some angle based on where it hit the paddle
             const hitPos = (gameState.ball.y - gameState.leftPaddle.y) / PADDLE_HEIGHT;
             gameState.ball.vy = (hitPos - 0.5) * gameState.ballSpeed * 2;
+            // Emit hit event for sound
+            io.emit('game:paddleHit', { side: 'left' });
         }
 
         // Ball collision with right paddle
@@ -184,18 +207,23 @@ function startGameLoop() {
             gameState.ball.vx *= -1;
             const hitPos = (gameState.ball.y - gameState.rightPaddle.y) / PADDLE_HEIGHT;
             gameState.ball.vy = (hitPos - 0.5) * gameState.ballSpeed * 2;
+            // Emit hit event for sound
+            io.emit('game:paddleHit', { side: 'right' });
         }
 
         // Score detection
         let scored = false;
+        let scoringSide = null;
         if (gameState.ball.x <= 0) {
-            // Right team scores
+            // Right side scores (ball went through left goal)
             gameState.score.right++;
             scored = true;
+            scoringSide = 'right';
         } else if (gameState.ball.x >= CANVAS_WIDTH) {
-            // Left team scores
+            // Left side scores (ball went through right goal)
             gameState.score.left++;
             scored = true;
+            scoringSide = 'left';
         }
 
         if (scored) {
@@ -214,13 +242,18 @@ function startGameLoop() {
                 }, 1500);
             }
 
+            // Emit goal sound event
+            io.emit('game:goal', { side: scoringSide });
+
             io.emit('game:scored', {
                 score: gameState.score
             });
         }
 
-        // Clear votes after processing (votes are per-frame)
-        // Actually, keep votes persistent until player changes input
+        // Get the active paddle's vote ratios
+        const activePaddle = gameState.activePaddle === 'left' ? gameState.leftPaddle : gameState.rightPaddle;
+        const activeUpRatio = activePaddle.upVotes / Math.max(1, activePaddle.upVotes + activePaddle.downVotes);
+        const activeDownRatio = activePaddle.downVotes / Math.max(1, activePaddle.upVotes + activePaddle.downVotes);
 
         // Broadcast game state
         io.emit('game:state', {
@@ -237,6 +270,9 @@ function startGameLoop() {
                 downRatio: gameState.rightPaddle.downVotes / Math.max(1, gameState.rightPaddle.upVotes + gameState.rightPaddle.downVotes),
                 totalVotes: gameState.rightPaddle.upVotes + gameState.rightPaddle.downVotes
             },
+            activePaddle: gameState.activePaddle,
+            activeUpRatio,
+            activeDownRatio,
             score: gameState.score,
             status: gameState.status,
             recentInputs: gameState.recentInputs
@@ -275,13 +311,18 @@ app.get('/display', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'display.html'));
 });
 
-// Confirmation displays for large events
+// Player test page - shows player numbers with colors
+app.get('/test', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'test.html'));
+});
+
+// Alias for test page
 app.get('/display1', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'display.html'));
+    res.sendFile(path.join(__dirname, 'public', 'test.html'));
 });
 
 app.get('/display2', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'display.html'));
+    res.sendFile(path.join(__dirname, 'public', 'test.html'));
 });
 
 // QR Code endpoint
@@ -343,6 +384,17 @@ io.on('connection', (socket) => {
         });
     });
 
+    // Test display joins
+    socket.on('test:join', () => {
+        socket.join('tests');
+        // Send current players list
+        const playerList = Array.from(gameState.players.values()).map(p => ({
+            number: p.number,
+            lastInput: p.lastInput
+        }));
+        socket.emit('test:players', playerList);
+    });
+
     // Player joins
     socket.on('player:join', () => {
         // Assign player number
@@ -361,10 +413,14 @@ io.on('connection', (socket) => {
             status: gameState.status
         });
 
-        // Notify displays and admin
+        // Notify displays, admin, and test pages
         io.to('displays').emit('player:joined', {
             number: playerNumber,
             totalPlayers: gameState.players.size
+        });
+
+        io.to('tests').emit('test:playerJoined', {
+            number: playerNumber
         });
 
         io.to('admins').emit('admin:playerUpdate', {
@@ -424,12 +480,20 @@ io.on('connection', (socket) => {
             number: player.number,
             direction: direction
         });
+
+        // Emit to test displays for color feedback
+        io.to('tests').emit('test:input', {
+            number: player.number,
+            direction: direction
+        });
     });
 
     // Player releases button
     socket.on('player:release', () => {
         const player = gameState.players.get(socket.id);
         if (!player || !player.lastInput) return;
+
+        const playerNumber = player.number;
 
         // Remove vote from both paddles
         if (player.lastInput === 'up') {
@@ -442,6 +506,11 @@ io.on('connection', (socket) => {
         }
 
         player.lastInput = null;
+
+        // Emit to test displays
+        io.to('tests').emit('test:release', {
+            number: playerNumber
+        });
     });
 
     // Admin controls
@@ -500,6 +569,8 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         const player = gameState.players.get(socket.id);
         if (player) {
+            const playerNumber = player.number;
+
             // Remove their vote from both paddles
             if (player.lastInput === 'up') {
                 gameState.leftPaddle.upVotes = Math.max(0, gameState.leftPaddle.upVotes - 1);
@@ -516,7 +587,12 @@ io.on('connection', (socket) => {
                 playerCount: gameState.players.size
             });
 
-            console.log(`Player ${player.number} disconnected`);
+            // Notify test displays
+            io.to('tests').emit('test:playerLeft', {
+                number: playerNumber
+            });
+
+            console.log(`Player ${playerNumber} disconnected`);
         }
     });
 });
@@ -528,6 +604,7 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('🏓 Crowd Interactive Pong Game');
     console.log('='.repeat(50));
     console.log(`\n📺 Display:    http://localhost:${PORT}/display`);
+    console.log(`🧪 Test:       http://localhost:${PORT}/test`);
     console.log(`🎮 Admin:      http://localhost:${PORT}/admin`);
     console.log(`📱 Player URL: http://${ip}:${PORT}/play`);
     console.log(`\n🎯 First to ${WINNING_SCORE} points wins!`);

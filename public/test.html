@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong Game - Player Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(180deg, #0a1628 0%, #1a3a5c 50%, #0d2035 100%);
+            min-height: 100vh;
+            color: #fff;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Left and Right sides */
+        .side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            position: relative;
+        }
+
+        .side-left {
+            background: linear-gradient(90deg, rgba(0, 100, 150, 0.3), transparent);
+        }
+
+        .side-right {
+            background: linear-gradient(90deg, transparent, rgba(0, 100, 150, 0.3));
+        }
+
+        /* Center area */
+        .center {
+            width: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .qr-section {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .qr-section img {
+            width: 150px;
+            height: 150px;
+        }
+
+        .qr-label {
+            color: #333;
+            font-size: 14px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        /* Player numbers grid */
+        .players-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-start;
+            align-content: flex-start;
+            padding: 10px;
+        }
+
+        .side-right .players-grid {
+            justify-content: flex-end;
+        }
+
+        /* Player number item */
+        .player-item {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            background: rgba(50, 50, 80, 0.6);
+            border: 2px solid rgba(100, 100, 150, 0.5);
+            transition: all 0.15s ease;
+            position: relative;
+        }
+
+        /* Shapes for odd/even */
+        .player-item.even {
+            border-radius: 50%; /* Circle for even */
+        }
+
+        .player-item.odd {
+            border-radius: 8px; /* Square for odd */
+        }
+
+        /* Color states */
+        .player-item.green {
+            background: rgba(0, 255, 136, 0.8);
+            border-color: #00ff88;
+            color: #003322;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+            transform: scale(1.1);
+        }
+
+        .player-item.red {
+            background: rgba(255, 107, 107, 0.8);
+            border-color: #ff6b6b;
+            color: #330011;
+            box-shadow: 0 0 20px rgba(255, 107, 107, 0.6);
+            transform: scale(1.1);
+        }
+
+        /* Side labels */
+        .side-label {
+            position: absolute;
+            top: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .side-left .side-label {
+            left: 30px;
+        }
+
+        .side-right .side-label {
+            right: 30px;
+        }
+
+        /* Player count display */
+        .player-count {
+            position: absolute;
+            bottom: 20px;
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .side-left .player-count {
+            left: 30px;
+        }
+
+        .side-right .player-count {
+            right: 30px;
+        }
+
+        /* Title */
+        .title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00ff88, #00d9ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: none;
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 30px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-shape {
+            width: 24px;
+            height: 24px;
+            background: rgba(100, 100, 150, 0.5);
+            border: 2px solid rgba(150, 150, 200, 0.5);
+        }
+
+        .legend-shape.circle {
+            border-radius: 50%;
+        }
+
+        .legend-shape.square {
+            border-radius: 4px;
+        }
+
+        /* Underwater decorations */
+        .bubbles {
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .bubble {
+            position: absolute;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1));
+            border-radius: 50%;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">Crowd Pong - 玩家測試</div>
+
+        <!-- Left side (Even numbers) -->
+        <div class="side side-left">
+            <div class="side-label">偶數</div>
+            <div class="players-grid" id="leftPlayers"></div>
+            <div class="player-count">偶數: <span id="evenCount">0</span> 人</div>
+        </div>
+
+        <!-- Center QR Code -->
+        <div class="center">
+            <div class="qr-section">
+                <img id="qrCode" src="" alt="QR Code">
+                <div class="qr-label">掃描加入</div>
+            </div>
+        </div>
+
+        <!-- Right side (Odd numbers) -->
+        <div class="side side-right">
+            <div class="side-label">單數</div>
+            <div class="players-grid" id="rightPlayers"></div>
+            <div class="player-count">單數: <span id="oddCount">0</span> 人</div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-shape circle"></div>
+                <span>偶數</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-shape square"></div>
+                <span>單數</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        const players = new Map(); // number -> { element, side, lastInput }
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            socket.emit('test:join');
+        });
+
+        // Receive current players list
+        socket.on('test:players', (playerList) => {
+            playerList.forEach(p => {
+                addPlayer(p.number, p.lastInput);
+            });
+            updateCounts();
+        });
+
+        // New player joined
+        socket.on('test:playerJoined', (data) => {
+            addPlayer(data.number, null);
+            updateCounts();
+        });
+
+        // Player input changed
+        socket.on('test:input', (data) => {
+            const player = players.get(data.number);
+            if (player) {
+                player.element.classList.remove('green', 'red');
+                if (data.direction === 'up') {
+                    player.element.classList.add('green');
+                } else if (data.direction === 'down') {
+                    player.element.classList.add('red');
+                }
+                player.lastInput = data.direction;
+            }
+        });
+
+        // Player released
+        socket.on('test:release', (data) => {
+            const player = players.get(data.number);
+            if (player) {
+                player.element.classList.remove('green', 'red');
+                player.lastInput = null;
+            }
+        });
+
+        // Player disconnected
+        socket.on('test:playerLeft', (data) => {
+            const player = players.get(data.number);
+            if (player) {
+                player.element.remove();
+                players.delete(data.number);
+                updateCounts();
+            }
+        });
+
+        // Players reset
+        socket.on('players:reset', () => {
+            players.forEach(p => p.element.remove());
+            players.clear();
+            updateCounts();
+        });
+
+        function addPlayer(number, lastInput) {
+            if (players.has(number)) return;
+
+            const isEven = number % 2 === 0;
+            const container = isEven ?
+                document.getElementById('leftPlayers') :
+                document.getElementById('rightPlayers');
+
+            const el = document.createElement('div');
+            el.className = `player-item ${isEven ? 'even' : 'odd'}`;
+            el.textContent = number;
+
+            if (lastInput === 'up') {
+                el.classList.add('green');
+            } else if (lastInput === 'down') {
+                el.classList.add('red');
+            }
+
+            container.appendChild(el);
+            players.set(number, { element: el, side: isEven ? 'left' : 'right', lastInput });
+
+            // Sort players by number
+            sortPlayers(container, isEven);
+        }
+
+        function sortPlayers(container, isEven) {
+            const items = Array.from(container.children);
+            items.sort((a, b) => parseInt(a.textContent) - parseInt(b.textContent));
+            items.forEach(item => container.appendChild(item));
+        }
+
+        function updateCounts() {
+            let evenCount = 0;
+            let oddCount = 0;
+            players.forEach((p, num) => {
+                if (num % 2 === 0) evenCount++;
+                else oddCount++;
+            });
+            document.getElementById('evenCount').textContent = evenCount;
+            document.getElementById('oddCount').textContent = oddCount;
+        }
+
+        // Load QR Code
+        async function loadQRCode() {
+            try {
+                const res = await fetch('/qr');
+                const data = await res.json();
+                document.getElementById('qrCode').src = data.qr;
+            } catch (err) {
+                console.error('Failed to load QR code:', err);
+            }
+        }
+
+        loadQRCode();
+    </script>
+</body>
+</html>
