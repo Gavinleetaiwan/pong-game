@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong Game - Display</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 40px;
+            background: rgba(0, 0, 0, 0.8);
+            border-bottom: 2px solid #333;
+        }
+
+        .team-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .team-label {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .team-left .team-label { color: #00ff88; }
+        .team-right .team-label { color: #ff6b6b; }
+
+        .score-display {
+            font-size: 72px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            align-items: center;
+            gap: 40px;
+        }
+
+        .score-left { color: #00ff88; }
+        .score-right { color: #ff6b6b; }
+        .score-divider { color: #666; }
+
+        .game-info {
+            text-align: center;
+        }
+
+        .round-display {
+            font-size: 18px;
+            color: #888;
+        }
+
+        .rules-display {
+            font-size: 16px;
+            color: #f59e0b;
+            margin-top: 5px;
+        }
+
+        .game-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: linear-gradient(to bottom, #1a1a2e, #0a0a1a);
+        }
+
+        #gameCanvas {
+            border: 3px solid #333;
+            border-radius: 10px;
+            box-shadow: 0 0 50px rgba(0, 217, 255, 0.2);
+        }
+
+        /* Force ratio indicators */
+        .force-indicator {
+            position: absolute;
+            width: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .force-indicator-left {
+            left: calc(50% - 600px - 60px);
+        }
+
+        .force-indicator-right {
+            right: calc(50% - 600px - 60px);
+        }
+
+        .force-bar {
+            height: 200px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 2px solid #333;
+        }
+
+        .force-up {
+            background: #00ff88;
+            transition: height 0.1s;
+        }
+
+        .force-down {
+            background: #ff6b6b;
+            transition: height 0.1s;
+        }
+
+        .force-label {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+        }
+
+        /* Marquee for player inputs */
+        .marquee-container {
+            background: linear-gradient(to right, #00ff88, #1a1a2e 10%, #1a1a2e 90%, #ff6b6b);
+            padding: 10px 0;
+            overflow: hidden;
+            border-top: 2px solid #333;
+        }
+
+        .marquee-content {
+            display: flex;
+            gap: 30px;
+            animation: marquee 20s linear infinite;
+            white-space: nowrap;
+        }
+
+        @keyframes marquee {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+
+        .input-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .input-item.left {
+            background: rgba(0, 255, 136, 0.2);
+            border: 2px solid #00ff88;
+        }
+
+        .input-item.right {
+            background: rgba(255, 107, 107, 0.2);
+            border: 2px solid #ff6b6b;
+        }
+
+        .input-number {
+            font-size: 24px;
+        }
+
+        .input-arrow {
+            font-size: 20px;
+        }
+
+        .input-arrow.up { color: #00ff88; }
+        .input-arrow.down { color: #ff6b6b; }
+
+        /* Status overlay */
+        .status-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+        }
+
+        .status-overlay.hidden {
+            display: none;
+        }
+
+        .status-message {
+            text-align: center;
+        }
+
+        .status-title {
+            font-size: 72px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .status-subtitle {
+            font-size: 28px;
+            color: #888;
+        }
+
+        .winner-left .status-title { color: #00ff88; }
+        .winner-right .status-title { color: #ff6b6b; }
+
+        /* Waiting screen */
+        .waiting-info {
+            text-align: center;
+        }
+
+        .waiting-title {
+            font-size: 48px;
+            margin-bottom: 30px;
+            background: linear-gradient(90deg, #00ff88, #00d9ff, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .player-count {
+            font-size: 120px;
+            font-weight: bold;
+            color: #00d9ff;
+        }
+
+        .player-label {
+            font-size: 24px;
+            color: #888;
+            margin-bottom: 30px;
+        }
+
+        .team-counts {
+            display: flex;
+            justify-content: center;
+            gap: 100px;
+            margin-top: 30px;
+        }
+
+        .team-count {
+            text-align: center;
+        }
+
+        .team-count-value {
+            font-size: 48px;
+            font-weight: bold;
+        }
+
+        .team-count-left .team-count-value { color: #00ff88; }
+        .team-count-right .team-count-value { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <div class="game-header">
+        <div class="team-info team-left">
+            <span class="team-label">左方 (偶數)</span>
+        </div>
+
+        <div class="game-info">
+            <div class="score-display">
+                <span class="score-left" id="scoreLeft">0</span>
+                <span class="score-divider">:</span>
+                <span class="score-right" id="scoreRight">0</span>
+            </div>
+            <div class="round-display">第 <span id="roundNumber">1</span> 局</div>
+            <div class="rules-display">雙數守左方，單數守右方，先得7分方獲勝</div>
+        </div>
+
+        <div class="team-info team-right">
+            <span class="team-label">右方 (單數)</span>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <!-- Force indicators -->
+        <div class="force-indicator force-indicator-left">
+            <div class="force-label">上</div>
+            <div class="force-bar">
+                <div class="force-up" id="leftForceUp" style="height: 50%;"></div>
+                <div class="force-down" id="leftForceDown" style="height: 50%;"></div>
+            </div>
+            <div class="force-label">下</div>
+        </div>
+
+        <canvas id="gameCanvas" width="1200" height="600"></canvas>
+
+        <div class="force-indicator force-indicator-right">
+            <div class="force-label">上</div>
+            <div class="force-bar">
+                <div class="force-up" id="rightForceUp" style="height: 50%;"></div>
+                <div class="force-down" id="rightForceDown" style="height: 50%;"></div>
+            </div>
+            <div class="force-label">下</div>
+        </div>
+
+        <!-- Status overlay -->
+        <div class="status-overlay" id="statusOverlay">
+            <div class="status-message waiting-info" id="waitingScreen">
+                <div class="waiting-title">Crowd Interactive Pong</div>
+                <div class="player-count" id="playerCount">0</div>
+                <div class="player-label">位玩家已連線</div>
+                <div class="team-counts">
+                    <div class="team-count team-count-left">
+                        <div class="team-count-value" id="leftTeamCount">0</div>
+                        <div>左方 (偶數)</div>
+                    </div>
+                    <div class="team-count team-count-right">
+                        <div class="team-count-value" id="rightTeamCount">0</div>
+                        <div>右方 (單數)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-message" id="finishedScreen" style="display: none;">
+                <div class="status-title" id="winnerTitle">勝利!</div>
+                <div class="status-subtitle" id="finalScore">0 : 0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="marquee-container">
+        <div class="marquee-content" id="marqueeContent">
+            <span style="color: #888;">等待玩家輸入...</span>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let gameConfig = {
+            canvasWidth: 1200,
+            canvasHeight: 600,
+            paddleWidth: 15,
+            paddleHeight: 120,
+            ballSize: 15
+        };
+
+        let gameState = {
+            status: 'waiting',
+            ball: { x: 600, y: 300 },
+            leftPaddle: { y: 240, upRatio: 0.5, downRatio: 0.5 },
+            rightPaddle: { y: 240, upRatio: 0.5, downRatio: 0.5 },
+            score: { left: 0, right: 0 },
+            round: 1
+        };
+
+        let recentInputs = [];
+
+        // Socket events
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            socket.emit('display:join');
+        });
+
+        socket.on('display:init', (config) => {
+            gameConfig = { ...gameConfig, ...config };
+            if (config.status === 'waiting') {
+                showWaitingScreen();
+            }
+        });
+
+        socket.on('game:state', (state) => {
+            gameState = state;
+            updateForceIndicators();
+            updateMarquee(state.recentInputs);
+            draw();
+        });
+
+        socket.on('game:started', (data) => {
+            hideOverlay();
+            document.getElementById('scoreLeft').textContent = data.score.left;
+            document.getElementById('scoreRight').textContent = data.score.right;
+            document.getElementById('roundNumber').textContent = data.round;
+        });
+
+        socket.on('game:scored', (data) => {
+            document.getElementById('scoreLeft').textContent = data.score.left;
+            document.getElementById('scoreRight').textContent = data.score.right;
+            document.getElementById('roundNumber').textContent = data.round;
+        });
+
+        socket.on('game:roundStart', (data) => {
+            document.getElementById('roundNumber').textContent = data.round;
+        });
+
+        socket.on('game:finished', (data) => {
+            showFinishedScreen(data.winner, data.score);
+        });
+
+        socket.on('game:reset', () => {
+            showWaitingScreen();
+            document.getElementById('scoreLeft').textContent = '0';
+            document.getElementById('scoreRight').textContent = '0';
+            document.getElementById('roundNumber').textContent = '1';
+        });
+
+        socket.on('game:paused', () => {
+            // Could show paused indicator
+        });
+
+        socket.on('game:resumed', () => {
+            hideOverlay();
+        });
+
+        socket.on('player:joined', (data) => {
+            document.getElementById('playerCount').textContent = data.totalPlayers;
+            if (data.team === 'left') {
+                const count = parseInt(document.getElementById('leftTeamCount').textContent) + 1;
+                document.getElementById('leftTeamCount').textContent = count;
+            } else {
+                const count = parseInt(document.getElementById('rightTeamCount').textContent) + 1;
+                document.getElementById('rightTeamCount').textContent = count;
+            }
+        });
+
+        socket.on('admin:playerUpdate', (data) => {
+            document.getElementById('playerCount').textContent = data.playerCount;
+            document.getElementById('leftTeamCount').textContent = data.leftTeamCount;
+            document.getElementById('rightTeamCount').textContent = data.rightTeamCount;
+        });
+
+        socket.on('players:reset', () => {
+            document.getElementById('playerCount').textContent = '0';
+            document.getElementById('leftTeamCount').textContent = '0';
+            document.getElementById('rightTeamCount').textContent = '0';
+            recentInputs = [];
+            updateMarquee([]);
+        });
+
+        socket.on('input:received', (data) => {
+            // Input received - marquee will be updated via game:state
+        });
+
+        // UI Functions
+        function showWaitingScreen() {
+            const overlay = document.getElementById('statusOverlay');
+            const waiting = document.getElementById('waitingScreen');
+            const finished = document.getElementById('finishedScreen');
+            overlay.classList.remove('hidden');
+            waiting.style.display = 'block';
+            finished.style.display = 'none';
+        }
+
+        function showFinishedScreen(winner, score) {
+            const overlay = document.getElementById('statusOverlay');
+            const waiting = document.getElementById('waitingScreen');
+            const finished = document.getElementById('finishedScreen');
+            const title = document.getElementById('winnerTitle');
+            const finalScore = document.getElementById('finalScore');
+
+            overlay.classList.remove('hidden');
+            waiting.style.display = 'none';
+            finished.style.display = 'block';
+
+            finished.className = 'status-message winner-' + winner;
+            title.textContent = (winner === 'left' ? '左方' : '右方') + ' 獲勝!';
+            finalScore.textContent = `${score.left} : ${score.right}`;
+        }
+
+        function hideOverlay() {
+            document.getElementById('statusOverlay').classList.add('hidden');
+        }
+
+        function updateForceIndicators() {
+            const leftUp = document.getElementById('leftForceUp');
+            const leftDown = document.getElementById('leftForceDown');
+            const rightUp = document.getElementById('rightForceUp');
+            const rightDown = document.getElementById('rightForceDown');
+
+            const leftUpRatio = gameState.leftPaddle.upRatio || 0.5;
+            const leftDownRatio = gameState.leftPaddle.downRatio || 0.5;
+            const rightUpRatio = gameState.rightPaddle.upRatio || 0.5;
+            const rightDownRatio = gameState.rightPaddle.downRatio || 0.5;
+
+            leftUp.style.height = (leftUpRatio * 100) + '%';
+            leftDown.style.height = (leftDownRatio * 100) + '%';
+            rightUp.style.height = (rightUpRatio * 100) + '%';
+            rightDown.style.height = (rightDownRatio * 100) + '%';
+        }
+
+        function updateMarquee(inputs) {
+            const marquee = document.getElementById('marqueeContent');
+            if (!inputs || inputs.length === 0) {
+                marquee.innerHTML = '<span style="color: #888;">等待玩家輸入...</span>';
+                return;
+            }
+
+            marquee.innerHTML = inputs.map(input => {
+                const arrow = input.direction === 'up' ? '▲' : '▼';
+                const arrowClass = input.direction === 'up' ? 'up' : 'down';
+                return `
+                    <div class="input-item ${input.team}">
+                        <span class="input-number">${input.number}</span>
+                        <span class="input-arrow ${arrowClass}">${arrow}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Drawing
+        function draw() {
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Center line
+            ctx.setLineDash([20, 15]);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Left paddle
+            const gradient1 = ctx.createLinearGradient(0, gameState.leftPaddle.y, 0, gameState.leftPaddle.y + gameConfig.paddleHeight);
+            gradient1.addColorStop(0, '#00ff88');
+            gradient1.addColorStop(1, '#00cc6a');
+            ctx.fillStyle = gradient1;
+            ctx.fillRect(20, gameState.leftPaddle.y, gameConfig.paddleWidth, gameConfig.paddleHeight);
+
+            // Right paddle
+            const gradient2 = ctx.createLinearGradient(0, gameState.rightPaddle.y, 0, gameState.rightPaddle.y + gameConfig.paddleHeight);
+            gradient2.addColorStop(0, '#ff6b6b');
+            gradient2.addColorStop(1, '#cc5555');
+            ctx.fillStyle = gradient2;
+            ctx.fillRect(canvas.width - 20 - gameConfig.paddleWidth, gameState.rightPaddle.y, gameConfig.paddleWidth, gameConfig.paddleHeight);
+
+            // Ball
+            ctx.beginPath();
+            ctx.arc(gameState.ball.x + gameConfig.ballSize / 2, gameState.ball.y + gameConfig.ballSize / 2, gameConfig.ballSize / 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+
+            // Ball trail effect
+            ctx.beginPath();
+            ctx.arc(gameState.ball.x + gameConfig.ballSize / 2, gameState.ball.y + gameConfig.ballSize / 2, gameConfig.ballSize / 2 + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Initial draw
+        draw();
+    </script>
+</body>
+</html>

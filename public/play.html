@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pong Game - 加入遊戲</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Screens */
+        .screen {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* Join Screen */
+        #joinScreen {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .join-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00ff88, #00d9ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .join-subtitle {
+            color: #8892b0;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+
+        .join-btn {
+            padding: 20px 60px;
+            font-size: 24px;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            color: #0a192f;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .join-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Waiting Screen */
+        #waitingScreen {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .waiting-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .player-number {
+            font-size: 120px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+
+        .player-number.left { color: #00ff88; }
+        .player-number.right { color: #ff6b6b; }
+
+        .team-badge {
+            font-size: 24px;
+            padding: 10px 30px;
+            border-radius: 30px;
+            margin-top: 10px;
+        }
+
+        .team-badge.left {
+            background: rgba(0, 255, 136, 0.2);
+            border: 2px solid #00ff88;
+            color: #00ff88;
+        }
+
+        .team-badge.right {
+            background: rgba(255, 107, 107, 0.2);
+            border: 2px solid #ff6b6b;
+            color: #ff6b6b;
+        }
+
+        .waiting-text {
+            margin-top: 30px;
+            color: #8892b0;
+            font-size: 16px;
+        }
+
+        /* Game Screen */
+        #gameScreen {
+            padding: 0;
+        }
+
+        .game-header {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .my-number {
+            font-size: 36px;
+            font-weight: bold;
+        }
+
+        .my-number.left { color: #00ff88; }
+        .my-number.right { color: #ff6b6b; }
+
+        .score-info {
+            text-align: center;
+        }
+
+        .score-display {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .round-display {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .team-indicator {
+            font-size: 14px;
+            padding: 5px 15px;
+            border-radius: 15px;
+        }
+
+        .team-indicator.left {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+
+        .team-indicator.right {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b;
+        }
+
+        /* Control buttons */
+        .controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .control-btn {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 80px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .control-btn:active,
+        .control-btn.pressed {
+            transform: scale(0.95);
+        }
+
+        .btn-up {
+            background: linear-gradient(180deg, #00ff88, #00cc6a);
+            color: #0a192f;
+        }
+
+        .btn-up:active,
+        .btn-up.pressed {
+            background: linear-gradient(180deg, #00cc6a, #009950);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+        }
+
+        .btn-down {
+            background: linear-gradient(180deg, #ff6b6b, #cc5555);
+            color: #fff;
+        }
+
+        .btn-down:active,
+        .btn-down.pressed {
+            background: linear-gradient(180deg, #cc5555, #994444);
+            box-shadow: 0 0 30px rgba(255, 107, 107, 0.5);
+        }
+
+        .input-feedback {
+            text-align: center;
+            font-size: 18px;
+            padding: 10px;
+            color: #888;
+        }
+
+        .input-feedback.active {
+            color: #00d9ff;
+            font-weight: bold;
+        }
+
+        /* Result Screen */
+        #resultScreen {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .result-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .result-title {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .result-title.win { color: #00ff88; }
+        .result-title.lose { color: #ff6b6b; }
+
+        .result-score {
+            font-size: 48px;
+            margin-bottom: 30px;
+        }
+
+        /* Connection indicator */
+        .connection-dot {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff6b6b;
+        }
+
+        .connection-dot.connected {
+            background: #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-dot" id="connectionDot"></div>
+
+    <div class="container">
+        <!-- Join Screen -->
+        <div class="screen active" id="joinScreen">
+            <div class="join-title">Crowd Pong</div>
+            <div class="join-subtitle">群體智慧互動遊戲</div>
+            <button class="join-btn" id="joinBtn">加入遊戲</button>
+        </div>
+
+        <!-- Waiting Screen -->
+        <div class="screen" id="waitingScreen">
+            <div class="waiting-icon">🏓</div>
+            <div style="color: #888; font-size: 16px;">你的號碼是</div>
+            <div class="player-number" id="playerNumber">--</div>
+            <div class="team-badge" id="teamBadge">--</div>
+            <div class="waiting-text">等待遊戲開始...</div>
+        </div>
+
+        <!-- Game Screen -->
+        <div class="screen" id="gameScreen">
+            <div class="game-header">
+                <div class="my-number" id="myNumber">--</div>
+                <div class="score-info">
+                    <div class="score-display">
+                        <span id="scoreLeft">0</span> : <span id="scoreRight">0</span>
+                    </div>
+                    <div class="round-display">第 <span id="roundNumber">1</span> 局</div>
+                </div>
+                <div class="team-indicator" id="teamIndicator">--</div>
+            </div>
+
+            <div class="controls">
+                <button class="control-btn btn-up" id="btnUp">▲</button>
+                <div class="input-feedback" id="inputFeedback">按住按鈕控制球拍</div>
+                <button class="control-btn btn-down" id="btnDown">▼</button>
+            </div>
+        </div>
+
+        <!-- Result Screen -->
+        <div class="screen" id="resultScreen">
+            <div class="result-icon" id="resultIcon">🎉</div>
+            <div class="result-title" id="resultTitle">遊戲結束</div>
+            <div class="result-score" id="resultScore">0 : 0</div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        let playerState = {
+            number: null,
+            team: null,
+            currentInput: null
+        };
+
+        const screens = {
+            join: document.getElementById('joinScreen'),
+            waiting: document.getElementById('waitingScreen'),
+            game: document.getElementById('gameScreen'),
+            result: document.getElementById('resultScreen')
+        };
+
+        function showScreen(name) {
+            Object.keys(screens).forEach(key => {
+                screens[key].classList.toggle('active', key === name);
+            });
+        }
+
+        // Socket events
+        socket.on('connect', () => {
+            console.log('Connected');
+            document.getElementById('connectionDot').classList.add('connected');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected');
+            document.getElementById('connectionDot').classList.remove('connected');
+        });
+
+        socket.on('player:assigned', (data) => {
+            playerState.number = data.number;
+            playerState.team = data.team;
+
+            // Update waiting screen
+            const numberEl = document.getElementById('playerNumber');
+            const badgeEl = document.getElementById('teamBadge');
+            numberEl.textContent = data.number;
+            numberEl.className = 'player-number ' + data.team;
+            badgeEl.textContent = '請守護' + data.teamName + '球門';
+            badgeEl.className = 'team-badge ' + data.team;
+
+            // Update game screen
+            const myNumber = document.getElementById('myNumber');
+            const indicator = document.getElementById('teamIndicator');
+            myNumber.textContent = data.number;
+            myNumber.className = 'my-number ' + data.team;
+            indicator.textContent = data.teamName;
+            indicator.className = 'team-indicator ' + data.team;
+
+            showScreen('waiting');
+
+            // If game already started
+            if (data.status === 'playing') {
+                showScreen('game');
+            }
+        });
+
+        socket.on('game:started', (data) => {
+            document.getElementById('scoreLeft').textContent = data.score.left;
+            document.getElementById('scoreRight').textContent = data.score.right;
+            document.getElementById('roundNumber').textContent = data.round;
+            showScreen('game');
+        });
+
+        socket.on('game:state', (state) => {
+            document.getElementById('scoreLeft').textContent = state.score.left;
+            document.getElementById('scoreRight').textContent = state.score.right;
+            document.getElementById('roundNumber').textContent = state.round;
+        });
+
+        socket.on('game:scored', (data) => {
+            document.getElementById('scoreLeft').textContent = data.score.left;
+            document.getElementById('scoreRight').textContent = data.score.right;
+            document.getElementById('roundNumber').textContent = data.round;
+        });
+
+        socket.on('game:finished', (data) => {
+            const isWinner = (data.winner === playerState.team);
+            document.getElementById('resultIcon').textContent = isWinner ? '🎉' : '😢';
+            document.getElementById('resultTitle').textContent = isWinner ? '你的隊伍獲勝!' : '遊戲結束';
+            document.getElementById('resultTitle').className = 'result-title ' + (isWinner ? 'win' : 'lose');
+            document.getElementById('resultScore').textContent = `${data.score.left} : ${data.score.right}`;
+            showScreen('result');
+        });
+
+        socket.on('game:reset', () => {
+            showScreen('waiting');
+        });
+
+        socket.on('game:paused', () => {
+            document.getElementById('inputFeedback').textContent = '遊戲暫停中';
+        });
+
+        socket.on('game:resumed', () => {
+            document.getElementById('inputFeedback').textContent = '按住按鈕控制球拍';
+        });
+
+        socket.on('players:reset', () => {
+            playerState = { number: null, team: null, currentInput: null };
+            showScreen('join');
+        });
+
+        // Join button
+        document.getElementById('joinBtn').addEventListener('click', () => {
+            socket.emit('player:join');
+        });
+
+        // Control buttons
+        const btnUp = document.getElementById('btnUp');
+        const btnDown = document.getElementById('btnDown');
+        const feedback = document.getElementById('inputFeedback');
+
+        function handleInput(direction) {
+            if (playerState.currentInput === direction) return;
+
+            playerState.currentInput = direction;
+            socket.emit('player:input', { direction });
+
+            feedback.textContent = direction === 'up' ? '▲ 向上移動' : '▼ 向下移動';
+            feedback.classList.add('active');
+        }
+
+        function handleRelease() {
+            if (playerState.currentInput === null) return;
+
+            playerState.currentInput = null;
+            socket.emit('player:release');
+
+            feedback.textContent = '按住按鈕控制球拍';
+            feedback.classList.remove('active');
+
+            btnUp.classList.remove('pressed');
+            btnDown.classList.remove('pressed');
+        }
+
+        // Touch events for up button
+        btnUp.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            btnUp.classList.add('pressed');
+            handleInput('up');
+        });
+
+        btnUp.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            handleRelease();
+        });
+
+        btnUp.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            handleRelease();
+        });
+
+        // Touch events for down button
+        btnDown.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            btnDown.classList.add('pressed');
+            handleInput('down');
+        });
+
+        btnDown.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            handleRelease();
+        });
+
+        btnDown.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            handleRelease();
+        });
+
+        // Mouse events (for testing)
+        btnUp.addEventListener('mousedown', () => {
+            btnUp.classList.add('pressed');
+            handleInput('up');
+        });
+
+        btnDown.addEventListener('mousedown', () => {
+            btnDown.classList.add('pressed');
+            handleInput('down');
+        });
+
+        document.addEventListener('mouseup', () => {
+            handleRelease();
+        });
+
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+    </script>
+</body>
+</html>

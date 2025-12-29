@@ -1,0 +1,27 @@
+{
+  "name": "crowd-pong-game",
+  "version": "1.0.0",
+  "description": "Crowd Interactive Pong Game - Experience Collective Intelligence",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "qrcode": "^1.5.3",
+    "socket.io": "^4.7.2"
+  },
+  "keywords": [
+    "pong",
+    "multiplayer",
+    "crowd-game",
+    "collective-intelligence",
+    "websocket"
+  ],
+  "author": "BigHistory.io",
+  "license": "MIT"
+}

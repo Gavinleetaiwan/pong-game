@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong Game - Admin Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 30px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            color: #ccd6f6;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #233554;
+        }
+
+        /* Status Panel */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .status-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #00d9ff;
+        }
+
+        .status-value.left { color: #00ff88; }
+        .status-value.right { color: #ff6b6b; }
+
+        .status-label {
+            font-size: 12px;
+            color: #8892b0;
+            margin-top: 5px;
+        }
+
+        .game-status {
+            text-align: center;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .game-status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .game-status-badge.waiting {
+            background: rgba(136, 146, 176, 0.2);
+            color: #8892b0;
+        }
+
+        .game-status-badge.playing {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+
+        .game-status-badge.paused {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .game-status-badge.finished {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        /* Control buttons */
+        .control-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 15px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+
+        .btn-start {
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            color: #0a192f;
+        }
+
+        .btn-pause {
+            background: #f59e0b;
+            color: #0a192f;
+        }
+
+        .btn-resume {
+            background: #00ff88;
+            color: #0a192f;
+        }
+
+        .btn-reset {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: #233554;
+            color: #ccd6f6;
+        }
+
+        /* QR Code Section */
+        .qr-section {
+            text-align: center;
+        }
+
+        .qr-code {
+            background: #fff;
+            padding: 15px;
+            border-radius: 12px;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+
+        .qr-code img {
+            width: 200px;
+            height: 200px;
+        }
+
+        .qr-url {
+            font-size: 14px;
+            color: #00d9ff;
+            word-break: break-all;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+
+        /* Links */
+        .links-section {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .link-card {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .link-card h3 {
+            color: #ccd6f6;
+            margin-bottom: 10px;
+        }
+
+        .link-card a {
+            color: #00d9ff;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .link-card a:hover {
+            text-decoration: underline;
+        }
+
+        /* Score display */
+        .score-display {
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .score-large {
+            font-size: 60px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+
+        .score-left { color: #00ff88; }
+        .score-right { color: #ff6b6b; }
+        .score-divider { color: #666; margin: 0 20px; }
+
+        .round-info {
+            font-size: 18px;
+            color: #888;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏓 Pong Game 管理控制台</h1>
+
+        <!-- Game Status -->
+        <div class="panel">
+            <h2>遊戲狀態</h2>
+
+            <div class="game-status">
+                <span class="game-status-badge waiting" id="statusBadge">等待中</span>
+            </div>
+
+            <div class="score-display">
+                <span class="score-large">
+                    <span class="score-left" id="scoreLeft">0</span>
+                    <span class="score-divider">:</span>
+                    <span class="score-right" id="scoreRight">0</span>
+                </span>
+                <div class="round-info">第 <span id="roundNumber">1</span> 局</div>
+            </div>
+
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-value" id="totalPlayers">0</div>
+                    <div class="status-label">總玩家數</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value left" id="leftTeam">0</div>
+                    <div class="status-label">左方 (偶數)</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value right" id="rightTeam">0</div>
+                    <div class="status-label">右方 (單數)</div>
+                </div>
+            </div>
+
+            <div class="control-buttons">
+                <button class="btn btn-start" id="btnStart">開始遊戲</button>
+                <button class="btn btn-pause" id="btnPause" disabled>暫停</button>
+                <button class="btn btn-reset" id="btnReset">重置遊戲</button>
+                <button class="btn btn-secondary" id="btnResetPlayers">清除玩家</button>
+            </div>
+        </div>
+
+        <!-- QR Code -->
+        <div class="panel">
+            <h2>玩家加入</h2>
+            <div class="qr-section">
+                <div class="qr-code">
+                    <img id="qrCode" src="" alt="QR Code">
+                </div>
+                <div class="qr-url" id="qrUrl">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Links -->
+        <div class="panel">
+            <h2>螢幕連結</h2>
+            <div class="links-section">
+                <div class="link-card">
+                    <h3>📺 主遊戲畫面</h3>
+                    <a href="/display" target="_blank" id="displayLink">/display</a>
+                </div>
+                <div class="link-card">
+                    <h3>📱 玩家加入頁</h3>
+                    <a href="/play" target="_blank" id="playLink">/play</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        let gameStatus = 'waiting';
+
+        // Elements
+        const statusBadge = document.getElementById('statusBadge');
+        const scoreLeft = document.getElementById('scoreLeft');
+        const scoreRight = document.getElementById('scoreRight');
+        const roundNumber = document.getElementById('roundNumber');
+        const totalPlayers = document.getElementById('totalPlayers');
+        const leftTeam = document.getElementById('leftTeam');
+        const rightTeam = document.getElementById('rightTeam');
+        const btnStart = document.getElementById('btnStart');
+        const btnPause = document.getElementById('btnPause');
+        const btnReset = document.getElementById('btnReset');
+        const btnResetPlayers = document.getElementById('btnResetPlayers');
+
+        // Socket events
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            socket.emit('admin:join');
+            loadQRCode();
+        });
+
+        socket.on('admin:state', (state) => {
+            updateStatus(state.status);
+            scoreLeft.textContent = state.score.left;
+            scoreRight.textContent = state.score.right;
+            roundNumber.textContent = state.round;
+            totalPlayers.textContent = state.playerCount;
+            leftTeam.textContent = state.leftTeamCount;
+            rightTeam.textContent = state.rightTeamCount;
+        });
+
+        socket.on('admin:playerUpdate', (data) => {
+            totalPlayers.textContent = data.playerCount;
+            leftTeam.textContent = data.leftTeamCount;
+            rightTeam.textContent = data.rightTeamCount;
+        });
+
+        socket.on('game:started', (data) => {
+            updateStatus('playing');
+            scoreLeft.textContent = data.score.left;
+            scoreRight.textContent = data.score.right;
+            roundNumber.textContent = data.round;
+        });
+
+        socket.on('game:scored', (data) => {
+            scoreLeft.textContent = data.score.left;
+            scoreRight.textContent = data.score.right;
+            roundNumber.textContent = data.round;
+        });
+
+        socket.on('game:finished', (data) => {
+            updateStatus('finished');
+            scoreLeft.textContent = data.score.left;
+            scoreRight.textContent = data.score.right;
+        });
+
+        socket.on('game:paused', () => {
+            updateStatus('paused');
+        });
+
+        socket.on('game:resumed', () => {
+            updateStatus('playing');
+        });
+
+        socket.on('game:reset', () => {
+            updateStatus('waiting');
+            scoreLeft.textContent = '0';
+            scoreRight.textContent = '0';
+            roundNumber.textContent = '1';
+        });
+
+        socket.on('players:reset', () => {
+            totalPlayers.textContent = '0';
+            leftTeam.textContent = '0';
+            rightTeam.textContent = '0';
+        });
+
+        // Functions
+        function updateStatus(status) {
+            gameStatus = status;
+            statusBadge.className = 'game-status-badge ' + status;
+
+            const statusTexts = {
+                waiting: '等待中',
+                playing: '遊戲進行中',
+                paused: '已暫停',
+                finished: '遊戲結束'
+            };
+            statusBadge.textContent = statusTexts[status] || status;
+
+            // Update button states
+            btnStart.disabled = status === 'playing';
+            btnStart.textContent = status === 'paused' ? '繼續遊戲' : '開始遊戲';
+            btnPause.disabled = status !== 'playing';
+        }
+
+        async function loadQRCode() {
+            try {
+                const res = await fetch('/qr');
+                const data = await res.json();
+                document.getElementById('qrCode').src = data.qr;
+                document.getElementById('qrUrl').textContent = data.url;
+            } catch (err) {
+                console.error('Failed to load QR code:', err);
+            }
+        }
+
+        // Button handlers
+        btnStart.addEventListener('click', () => {
+            if (gameStatus === 'paused') {
+                socket.emit('admin:resume');
+            } else {
+                socket.emit('admin:start');
+            }
+        });
+
+        btnPause.addEventListener('click', () => {
+            socket.emit('admin:pause');
+        });
+
+        btnReset.addEventListener('click', () => {
+            if (confirm('確定要重置遊戲嗎？')) {
+                socket.emit('admin:reset');
+            }
+        });
+
+        btnResetPlayers.addEventListener('click', () => {
+            if (confirm('確定要清除所有玩家嗎？')) {
+                socket.emit('admin:resetPlayers');
+            }
+        });
+    </script>
+</body>
+</html>
